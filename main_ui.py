@@ -9,9 +9,7 @@ class MainUI(MagnetInterfaceMixin, QWidget):
 	"""
 	A simple PyQt5 GUI for standardizing EPICS magnets.
 
-	Inherits from both QWidget (for GUI functionality) and MagnetInterfaceMixin 
-	(for magnet retrieval and filtering logic). Provides buttons to standardize 
-	magnets for the HXR and SXR beamlines, with user confirmation prompts.
+	Inherits from MagnetInterfaceMixin to interact with EPICS magnets.
 	"""
 
 	def __init__(self):
