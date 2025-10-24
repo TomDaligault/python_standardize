@@ -145,7 +145,7 @@ class MagnetInterface:
 		- Could be generalized to retrieve arbitrary PV suffixes instead of just STATMSG.
 		"""
 
-		name_filter = f"({'|'.join(self.primaries)}):({'|'.join(regions)})|%|STATMSG"
+		name_filter = f"({'|'.join(self.primaries)}):({'|'.join(regions)}):%:STATMSG"
 		status_pv_names = {pv for pv in names.list_pvs(name_filter)}
 
 		if not status_pv_names:
