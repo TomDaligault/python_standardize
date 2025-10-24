@@ -95,7 +95,7 @@ class MagnetInterfaceMixin:
 		- Intended for use on dictionaries returned by `get_magnets`.
 		"""
 
-		if healthly_statuses is None:
+		if healthy_statuses is None:
 			healthy_statuses = self.healthy_statuses
 
 		healthy_magnets = {k: v for k, v in magnets.items() if v in self.healthy_statuses}
@@ -107,7 +107,7 @@ class MagnetInterfaceMixin:
 		Not yet implimented, I don't want to take down the machines. 
 		"""
 
-		print(f"The following magnets would have been standardized:{', '.join(magnets)}")
+		print("The following magnets would have been standardized:" + '\n    '.join(magnets))
 
 	def _get_status_pv_names(self, regions: set[str]) -> set[str]:
 
@@ -136,7 +136,7 @@ class MagnetInterfaceMixin:
 		- Could be generalized to retrieve arbitrary PV suffixes instead of just STATMSG.
 		"""
 
-		name_filter = f"({'|'.join(self.primaries)}):({'|'.join(regions)})|%|STATMSG)"
+		name_filter = f"({'|'.join(self.primaries)}):({'|'.join(regions)})|%|STATMSG"
 		status_pv_names = {pv for pv in names.list_pvs(name_filter)}
 
 		if not status_pv_names:

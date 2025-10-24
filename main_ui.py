@@ -38,7 +38,7 @@ class MainUI(MagnetInterfaceMixin, QWidget):
 		result = dialog.exec_()
 		if result == dialog.Accepted:
 			self.standardize_magnets(standardize_queue)
-			self.launch_striptool()
+			self.launch_striptool(beamline)
 
 	def handle_unhealthy_magnets(self, unhealthy_magnets):
 		"""
@@ -73,7 +73,7 @@ class MainUI(MagnetInterfaceMixin, QWidget):
 		return permissible_magnets
 
 	def launch_striptool(self, beamline):
-		pass  # Not sure how to do this. Will ask M. Lans.
+		print("I don't know how to launch Michael's new striptool from python.")
 
 
 	def _build_ui(self):
