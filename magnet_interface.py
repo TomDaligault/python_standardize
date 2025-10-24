@@ -1,9 +1,9 @@
 from meme import names
 from epics import caget
 
-class MagnetInterfaceMixin:
+class MagnetInterface:
 	"""
-	A lightweight mixin for interfacing with EPICS magnets for beamline standardization.
+	A lightweight tool for interfacing with EPICS magnets for beamline standardization.
 
 	Provides methods to retrieve magnet control PVs, filter magnets by status, and initiate 
 	 standardization. Designed for dynamic runtime discovery of magnets.
@@ -25,27 +25,36 @@ class MagnetInterfaceMixin:
 	- Only PV names are stored; actual PV access is done via `caget` and `caput` as necessary.
 
 	"""
-
-	#Consider making these attributes instance-level with setters for more flexibility.
 	primaries = {'BEND', 'QUAD'}
 
 	beamline_regions = {
-					"HXR": {'CLTH', 'BSYH', 'LTUH', 'DMPH'},
-					"SXR": {'CLTS', 'BSYS', 'LTUS', 'DMPS'},
+					'HXR': {'CLTH', 'BSYH', 'LTUH', 'DMPH'},
+					'SXR': {'CLTS', 'BSYS', 'LTUS', 'DMPS'},
 					} 
 
 	healthy_statuses = {'Good', 'BCON Warning', 'BDES Change', 'Not Stdz\'d', 'Out-of-Tol', 'BAD Ripple'}
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, primaries=None, beamline_regions=None, healthy_statuses=None):
 		"""
-		Initialize mixin and delegate to superclass for multiple inheritance support.
+		Initialize indentifiers used for magnet parameter retreival and filtering.
+
+		Defaults to class-level values unless overridden by user-specified values.
 
 		Parameters
 		----------
-		*args, **kwargs : Any
-			Passed along the MRO chain for compatibility with other classes.
+		primaries : set[str]
+			Magnet types to include when filtering PVs.
+
+		beamline_regions : dict[str, set[str]]
+			Maps beamline names to sets of region identifiers.
+
+		healthy_statuses : set[str]
+			Status messages considered "healthy" when filtering magnets.
 		"""
-		super().__init__(*args, **kwargs)
+		
+		self.primaries = primaries or self.__class__.primaries
+		self.beamline_regions = beamline_regions or self.__class__.beamline_regions
+		self.healthy_statuses = healthy_statuses or self.__class__.healthy_statuses
 
 	def get_magnets(self, beamline: str) -> dict[str, str]:
 		"""

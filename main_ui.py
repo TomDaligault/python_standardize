@@ -3,17 +3,16 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLay
 from PyQt5.QtCore import Qt
 from confirmation_dialog import ConfirmDialog
 
-from magnet_interface_mixin import MagnetInterfaceMixin
+from magnet_interface import MagnetInterface
 
-class MainUI(MagnetInterfaceMixin, QWidget):
+class MainUI(QWidget):
 	"""
-	A simple PyQt5 GUI for standardizing EPICS magnets.
-
-	Inherits from MagnetInterfaceMixin to interact with EPICS magnets.
+	A GUI for standardizing EPICS magnets.
 	"""
 
 	def __init__(self):
 		super().__init__()
+		self.magnet_interface = MagnetInterface()
 		self._build_ui()
 
 	def run_standardize(self, beamline):
@@ -28,16 +27,17 @@ class MainUI(MagnetInterfaceMixin, QWidget):
 		beamline : str
 			The beamline identifier ("HXR" or "SXR") whose magnets should be standardized.
 		"""
-
-		magnets = self.get_magnets(beamline)
-		healthy_magnets, unhealthy_magnets = self.filter_magnets(magnets)
-		permissible_magnets = self.handle_unhealthy_magnets(unhealthy_magnets)
-		standardize_queue = {**healthy_magnets, **permissible_magnets}
-
+		
 		dialog = ConfirmDialog(warning_text="This will trip BCS for BOTH machines.\nPlease check with the other program first.")
 		result = dialog.exec_()
+
 		if result == dialog.Accepted:
-			self.standardize_magnets(standardize_queue)
+			magnets = self.magnet_interface.get_magnets(beamline)
+			healthy_magnets, unhealthy_magnets = self.magnet_interface.filter_magnets(magnets)
+			permissible_magnets = self.handle_unhealthy_magnets(unhealthy_magnets)
+
+			standardize_queue = {**healthy_magnets, **permissible_magnets}
+			self.magnet_interface.standardize_magnets(standardize_queue)
 			self.launch_striptool(beamline)
 
 	def handle_unhealthy_magnets(self, unhealthy_magnets):
