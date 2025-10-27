@@ -1,7 +1,7 @@
 from meme import names
 from epics import caget
 
-class MagnetInterface:
+class EpicsMagnetInterface:
 	"""
 	A lightweight tool for interfacing with EPICS magnets for beamline standardization.
 
@@ -36,7 +36,7 @@ class MagnetInterface:
 
 	def __init__(self, primaries=None, beamline_regions=None, healthy_statuses=None):
 		"""
-		Initialize indentifiers used for magnet parameter retreival and filtering.
+		Initialize indentifiers used for magnet parameter retrieval and filtering.
 
 		Defaults to class-level values unless overridden by user-specified values.
 
@@ -58,12 +58,14 @@ class MagnetInterface:
 
 	def get_magnets(self, beamline: str) -> dict[str, str]:
 		"""
-		Retrieve magnet BCTRL PV names and corresponding status messages for a beamline. 
+		Retrieve magnet BCTRL PV names and corresponding status messages for a given beamline.
+
+		Uses at `beamline_regions[beamline]` to determine which regions to get names from.
 
 		Parameters
 		----------
 		beamline : str
-			Beamline name to retieve magnets from.
+			Beamline identifier to retieve magnets from.
 
 		Returns
 		-------
@@ -73,7 +75,8 @@ class MagnetInterface:
 		Notes
 		-----
 		- Only magnets with valid STATMSG PVs are included.
-		- STATMSG PVs are converted to BCTRL PV names for consistence.
+		- Uses STATMSG PV names to build BCTRL PV names.
+		- Repeated `caget` calls are inefficient. 
 		"""
 		regions = self.beamline_regions[beamline]
 		status_pv_names = self._get_status_pv_names(regions)
@@ -107,16 +110,16 @@ class MagnetInterface:
 		if healthy_statuses is None:
 			healthy_statuses = self.healthy_statuses
 
-		healthy_magnets = {k: v for k, v in magnets.items() if v in self.healthy_statuses}
-		unhealthy_magnets = {k: v for k, v in magnets.items() if v not in self.healthy_statuses}
+		healthy_magnets = {k: v for k, v in magnets.items() if v in healthy_statuses}
+		unhealthy_magnets = {k: v for k, v in magnets.items() if v not in healthy_statuses}
 		return healthy_magnets, unhealthy_magnets
 
 	def standardize_magnets(self, magnets):  
 		"""
-		Not yet implimented, I don't want to take down the machines. 
+		Not yet implemented, I don't want to take down the machines. 
 		"""
 
-		print("The following magnets would have been standardized:" + '\n    '.join(magnets))
+		print('The following magnets would have been standardized:\n    ' + '\n    '.join(magnets))
 
 	def _get_status_pv_names(self, regions: set[str]) -> set[str]:
 

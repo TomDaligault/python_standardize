@@ -1,9 +1,10 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QCheckBox
 from PyQt5.QtCore import Qt
-from confirmation_dialog import ConfirmDialog
+from confirmation_dialog import ConfirmationDialog
 
-from magnet_interface import MagnetInterface
+from epics_magnet_interface import EpicsMagnetInterface
+from magnet_selection_widget import MagnetSelectionWidget
 
 class MainUI(QWidget):
 	"""
@@ -12,15 +13,15 @@ class MainUI(QWidget):
 
 	def __init__(self):
 		super().__init__()
-		self.magnet_interface = MagnetInterface()
+		self.magnet_interface = EpicsMagnetInterface()
 		self._build_ui()
 
-	def run_standardize(self, beamline):
+	def on_standardize(self, beamline):
 		"""
 		Orchestrates the magnet standardization process for the specified beamline.
 
-		This method retrieves magnets, filters them into healthy and unhealthy sets,
-		queries the user for confirmation where needed, and performs standardization.
+		Retrieves magnets, filters them into healthy and unhealthy sets, queries the 
+		user for confirmation where needed, and performs standardization.
 
 		Parameters
 		----------
@@ -28,21 +29,25 @@ class MainUI(QWidget):
 			The beamline identifier ("HXR" or "SXR") whose magnets should be standardized.
 		"""
 		
-		dialog = ConfirmDialog(warning_text="This will trip BCS for BOTH machines.\nPlease check with the other program first.")
+		dialog = ConfirmationDialog(warning_text="This will trip BCS for BOTH machines.\nPlease check with the other program.")
 		result = dialog.exec_()
 
 		if result == dialog.Accepted:
-			magnets = self.magnet_interface.get_magnets(beamline)
-			healthy_magnets, unhealthy_magnets = self.magnet_interface.filter_magnets(magnets)
+			# magnets = self.magnet_interface.get_magnets(beamline)
+			# healthy_magnets, unhealthy_magnets = self.magnet_interface.filter_magnets(magnets)
+			healthy_magnets, unhealthy_magnets = {"M1": "Good"}, {"QUAD:LTUH:240": "Offline","QUAD:LTUH:110": "Tripped","QUAD:LTUH:320": "Offline","QUAD:LTUH:540": "Offline","QUAD:LTUH:545": "No Control","QUAD:LTUH:740": "Tripped"}
 			permissible_magnets = self.handle_unhealthy_magnets(unhealthy_magnets)
 
-			standardize_queue = {**healthy_magnets, **permissible_magnets}
-			self.magnet_interface.standardize_magnets(standardize_queue)
-			self.launch_striptool(beamline)
+			if permissible_magnets is not None:
+				standardize_queue = {**healthy_magnets, **permissible_magnets}
+				self.magnet_interface.standardize_magnets(standardize_queue)
+
+				self.launch_striptool(beamline)
+				self.close()
 
 	def handle_unhealthy_magnets(self, unhealthy_magnets):
 		"""
-		Queries the user for permission to standardize unhealthy magnets.
+		Queries the user for permission to standardize non-healthy magnets.
 
 		A confirmation dialog is shown for each magnet with a non-healthy status.
 		Approved magnets are tagged with "(overridden)" and returned for inclusion 
@@ -56,21 +61,20 @@ class MainUI(QWidget):
 		Returns
 		-------
 		dict[str, str]
-			Magnets approved by the user for forced standardization.
-
-		Notes
-		-----
-		Repeated pop-ups is a bad user experience.
+			Magnets approved by the user for standardization.
 		"""
-		permissible_magnets = {}
- 
-		for magnet, status in unhealthy_magnets.items():
-			dialog = ConfirmDialog(warning_text=f"{magnet} is currently '{status}' should we standardize it anways?")
-			result = dialog.exec_()
-			if result == dialog.Accepted:
-				permissible_magnets[magnet] = f"{status} (overridden)"
+		selection_widget = MagnetSelectionWidget(unhealthy_magnets)
+		dialog = ConfirmationDialog(f"Should we include the following magnets?", selection_widget)
+		dialog.resize(340,400)
+		result = dialog.exec_()
+		if result == dialog.Accepted:
+			return selection_widget.get_selected()
 
-		return permissible_magnets
+	def _on_state_changed(self, magnet, status):
+		if checkbox.isChecked():
+			self.standardize_queue[magnet] = f"{status} (overridden)"
+		else:
+			self.standardize_queue[magnet].pop()
 
 	def launch_striptool(self, beamline):
 		print("I don't know how to launch Michael's new striptool from python.")
@@ -81,24 +85,22 @@ class MainUI(QWidget):
 		Constructs the static layout for the main UI.
 		"""
 		
-		warning_label = QLabel('<span style="color: red;">Caution, This will Standardize Magnets!</span>', alignment=Qt.AlignCenter)
 		hxr_stdz_button = QPushButton(parent=self, text='Standardize HXR')
 		sxr_stdz_button = QPushButton(parent=self, text='Standardize SXR')
 
 		hxr_stdz_button.setStyleSheet('background-color: lightblue')
 		sxr_stdz_button.setStyleSheet('background-color: pink')
 
-		hxr_stdz_button.clicked.connect(lambda: self.run_standardize(beamline="HXR"))
-		sxr_stdz_button.clicked.connect(lambda: self.run_standardize(beamline="SXR"))
+		hxr_stdz_button.clicked.connect(lambda: self.on_standardize(beamline="HXR"))
+		sxr_stdz_button.clicked.connect(lambda: self.on_standardize(beamline="SXR"))
 
 		layout = QVBoxLayout()
-		layout.addWidget(warning_label)
 		layout.addWidget(hxr_stdz_button)
 		layout.addWidget(sxr_stdz_button)
 
 		self.setLayout(layout)
 		self.setWindowTitle('Python standardize')
-		self.resize(300, 100)
+		self.resize(340, 100)
 
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
