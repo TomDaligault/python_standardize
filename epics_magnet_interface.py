@@ -1,158 +1,104 @@
-from meme import names
-from epics import caget
+# from meme import names
+# from epics import caget_many
 
 class EpicsMagnetInterface:
 	"""
 	A lightweight tool for interfacing with EPICS magnets for beamline standardization.
 
-	Provides methods to retrieve magnet control PVs, filter magnets by status, and initiate 
-	 standardization. Designed for dynamic runtime discovery of magnets.
-
 	Attributes
 	----------
-	primaries : set[str]
+	primaries : list[str]
 		Magnet types to include when filtering PVs.
 
-	beamline_regions : dict[str, set[str]]
-		Maps beamline names to sets of region identifiers.
+	beamline_regions : dict[str, list[str]]
+		Maps beamline names to lists of region identifiers.
 
 	healthy_statuses : set[str]
 		Status messages considered "healthy" when filtering magnets.
 
 	Notes
 	-----
-	- Retrieval is dynamic to account for magnet installation/removal over time. 
-	- Only PV names are stored; actual PV access is done via `caget` and `caput` as necessary.
+	- Retrieval is dynamically to account for magnet installation/removal over time.
 
 	"""
-	primaries = {'BEND', 'QUAD'}
+	primaries = ['BEND', 'QUAD']
 
 	beamline_regions = {
-					'HXR': {'CLTH', 'BSYH', 'LTUH', 'DMPH'},
-					'SXR': {'CLTS', 'BSYS', 'LTUS', 'DMPS'},
+					'HXR': ['CLTH', 'BSYH', 'LTUH', 'DMPH'],
+					'SXR': ['CLTS', 'BSYS', 'LTUS', 'DMPS'],
 					} 
 
 	healthy_statuses = {'Good', 'BCON Warning', 'BDES Change', 'Not Stdz\'d', 'Out-of-Tol', 'BAD Ripple'}
 
-	def __init__(self, primaries=None, beamline_regions=None, healthy_statuses=None):
+	def get_magnets_by_health(self, beamline):
+		magnets = self.get_magnets(beamline)
+		return self._partition_by_health(magnets)
+
+
+	def get_magnets(self, beamline: str):
 		"""
-		Initialize indentifiers used for magnet parameter retrieval and filtering.
-
-		Defaults to class-level values unless overridden by user-specified values.
-
-		Parameters
-		----------
-		primaries : set[str]
-			Magnet types to include when filtering PVs.
-
-		beamline_regions : dict[str, set[str]]
-			Maps beamline names to sets of region identifiers.
-
-		healthy_statuses : set[str]
-			Status messages considered "healthy" when filtering magnets.
-		"""
-		
-		self.primaries = primaries or self.__class__.primaries
-		self.beamline_regions = beamline_regions or self.__class__.beamline_regions
-		self.healthy_statuses = healthy_statuses or self.__class__.healthy_statuses
-
-	def get_magnets(self, beamline: str) -> dict[str, str]:
-		"""
-		Retrieve magnet BCTRL PV names and corresponding status messages for a given beamline.
-
-		Uses at `beamline_regions[beamline]` to determine which regions to get names from.
+		Builds a map between magnet names and statuses for a given beamline indentifier.
 
 		Parameters
 		----------
 		beamline : str
-			Beamline identifier to retieve magnets from.
+			Beamline identifier to retieve magnet names from.
 
 		Returns
 		-------
 		dict[str, str]
-			Mapping magnet BCTRL PV names to status messages (from STATMSG PV).
+			A map of magnet names as 'PRIMARY:REGION:UNIT' to their status message.
 
 		Notes
 		-----
-		- Only magnets with valid STATMSG PVs are included.
-		- Uses STATMSG PV names to build BCTRL PV names.
-		- Repeated `caget` calls are inefficient. 
-		"""
-		regions = self.beamline_regions[beamline]
-		status_pv_names = self._get_status_pv_names(regions)
-		return {status_pv.replace("STATMSG", "BCTRL"): caget(status_pv, as_string=True) for status_pv in status_pv_names}
-
-
-	def filter_magnets(self, magnets: dict[str, str], healthy_statuses=None):
-		"""
-		Split a dictionary of magnets into healthy and unhealthy based on status messages.
-
-		Parameters
-		----------
-		magnets : dict[str, str]
-			Dictionary of magnet BCTRL PV names mapped to their current status messages.
-		healthy_statuses : set[str], optional
-			Set of status strings considered "healthy". 
-			If None, uses the class attribute `healthy_statuses`.
-
-		Returns
-		-------
-		healthy_magnets : dict[str, str]
-			Magnets whose statuses are in `healthy_statuses`.
-		unhealthy_magnets : dict[str, str]
-			Magnets whose statuses are not in `healthy_statuses`.
-
-		Notes
-		-----
-		- Intended for use on dictionaries returned by `get_magnets`.
+		- Constructs a MEME filter string from class-level `primaries` and `beamline_regions[beamline]`.
+		- Excludes all slave magnets as determined by their `:CONFIG` PV.
 		"""
 
-		if healthy_statuses is None:
-			healthy_statuses = self.healthy_statuses
+		name_filter = f"({'|'.join(self.primaries)}):({'|'.join(self.beamline_regions[beamline])})"
 
-		healthy_magnets = {k: v for k, v in magnets.items() if v in healthy_statuses}
-		unhealthy_magnets = {k: v for k, v in magnets.items() if v not in healthy_statuses}
-		return healthy_magnets, unhealthy_magnets
+		magnet_names = names.list_devices(name_filter)
+		magnet_names = self._remove_string_magnets(magnet_names)
 
-	def standardize_magnets(self, magnets):  
+		statuses = caget_many([name + ':STATMSG' for name in magnet_names])
+
+		return dict(zip(magnet_names, statuses))
+
+	def standardize(self, magnets):  
 		"""
 		Not yet implemented, I don't want to take down the machines. 
 		"""
 
 		print('The following magnets would have been standardized:\n    ' + '\n    '.join(magnets))
 
-	def _get_status_pv_names(self, regions: set[str]) -> set[str]:
-
+	def _remove_string_magnets(self, magnet_names):
 		"""
-		Retrieve STATMSG PV names for a given set of regions.
+		filters out units without dedicated power supplies from a list of magnet names. 
+		"""
+
+		device_configs = caget_many([name + ':CONFIG' for name in magnet_names])
+		names_and_configs = dict(zip(magnet_names, device_configs))
+		return [name for name, config in names_and_configs.items() if config != 'String']
+
+	def _partition_by_health(self, magnets):
+		"""
+		Split magnets into healthy and nonhealthy group based on status messages.
 
 		Parameters
 		----------
-		regions : set[str]
-			Region identifiers used to filter PV names.
-			Typically obtained from `self.beamline_regions[beamline]`.
+		magnets : list[Magnet]
 
 		Returns
 		-------
-		set[str]
-			Set of matching STATMSG PV names.
-
-		Raises
-		------
-		NameError
-			If no STATMSG PVs are found for the given regions.
+		dict[str: dict[Magnet: str]]
+			A map between health group, Magnet objects, and magnet statuses.
 
 		Notes
 		-----
-		- Constructs a MEME filter string from class-level `primaries` and the provided regions.
-		- Could be generalized to retrieve arbitrary PV suffixes instead of just STATMSG.
+		- Uses the class-level `healthy_statuses` for categorization into groups.
 		"""
 
-		name_filter = f"({'|'.join(self.primaries)}):({'|'.join(regions)}):%:STATMSG"
-		status_pv_names = {pv for pv in names.list_pvs(name_filter)}
+		healthy_magnets = {m: s for m, s in magnets.items() if s in self.healthy_statuses}
+		nonhealthy_magnets = {m: s for m, s in magnets.items() if s not in self.healthy_statuses}
 
-		if not status_pv_names:
-			raise NameError(f"No status PVs found for primaries:{' '.join(self.primaries)}, and regions:{' '.join(regions)}.")
-
-		return status_pv_names
-			
+		return {'healthy': healthy_magnets, 'nonhealthy': nonhealthy_magnets}

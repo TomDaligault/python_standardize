@@ -5,15 +5,26 @@ class ConfirmationDialog(QDialog):
 	"""
 	A pre-configured QDialog with customizable text.
 	"""
-	def __init__(self, warning_text="Are you sure?", content_widget=None):
-		super().__init__()
-		self.setWindowTitle("Confirm")
+	def __init__(self, parent=None, warning_text="Are you sure?"):
+		"""
+		Initialize the dialog.
 
-		self.resize(340, 100)
+		Parameters
+		----------
+		parent : QWidget, optional
+			The parent for the dialog. If provided, the dialog will
+			inherit styling and be centered realtive to the parent.
+		warning_text : str
+			The warning message displayed in the dialog.
+		"""
+		super().__init__(parent=parent)
+		self.setWindowTitle("Are you sure?")
+
+		self.setMinimumSize(350, 120)
 		self.setModal(True)
 
 		warning_label = QLabel(f"{warning_text}", alignment=Qt.AlignCenter)
-		warning_label.setStyleSheet('color:red;')
+		warning_label.setStyleSheet('color: #d94a4a;')
 
 		confirm_button = QPushButton(text="Confirm")
 		confirm_button.clicked.connect(self.accept)
@@ -26,12 +37,8 @@ class ConfirmationDialog(QDialog):
 		button_layout.addWidget(confirm_button)
 		button_layout.addWidget(cancel_button)
 
-
-
 		main_layout = QVBoxLayout()
 		main_layout.addWidget(warning_label, alignment=Qt.AlignCenter)
-		if content_widget:
-			main_layout.addWidget(content_widget)
 		main_layout.addLayout(button_layout)
 
 		self.setLayout(main_layout)
