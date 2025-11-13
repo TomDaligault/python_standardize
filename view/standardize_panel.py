@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import Qt, pyqtSignal
 
-from magnet_selection_widget import MagnetSelectionWidget
+from .magnet_selection_widget import MagnetSelectionWidget
 
 class StandardizePanel(QWidget):
 	"""

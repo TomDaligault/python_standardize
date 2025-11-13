@@ -1,10 +1,9 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
 from PyQt5.QtCore import Qt, pyqtSignal
 
-from epics_magnet_interface import EpicsMagnetInterface
-from standardize_panel import StandardizePanel
-from tab_widget import TabWidget
-from confirmation_dialog import ConfirmationDialog
+from .standardize_panel import StandardizePanel
+from .tab_widget import TabWidget
+from .confirmation_dialog import ConfirmationDialog
 
 class MainUI(QWidget):
 	"""

@@ -1,6 +1,6 @@
 from presenter import Presenter
 from epics_magnet_interface import EpicsMagnetInterface
-from main_ui import MainUI
+from view.main_ui import MainUI
 
 from PyQt5.QtWidgets import QApplication
 import sys
