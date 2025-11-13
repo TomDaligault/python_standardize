@@ -51,14 +51,8 @@ class MagnetSelectionWidget(QWidget):
 			A mapping of magnet names to their status messages.
 		check_all : bool, optional
 			If True, all checkboxes are initially checked.
-
-		Notes
-		-----
-		Calling this method replaces any existing checkboxes and resets
-		the internal selection state.
 		"""
 
-		self.clear_magnets()
 		for name, status in magnets.items():
 			checkbox = QCheckBox(f"{name} - {status}")
 			checkbox.stateChanged.connect(lambda state, m=name, s=status: self._on_state_changed(state, m, s))
@@ -68,19 +62,6 @@ class MagnetSelectionWidget(QWidget):
 				
 			self.checkboxes_layout.addWidget(checkbox)
 		self.checkboxes_layout.addStretch()
-
-	def clear_magnets(self):
-		"""
-		Remove all widgets from the checkbox layout and clear the selected state.
-		"""
-
-		while self.checkboxes_layout.count():
-			layout_item = self.checkboxes_layout.takeAt(0)
-			widget = layout_item.widget() 
-			if widget is not None:
-				widget.deleteLater()
-		self._selected.clear()
-
 
 	def _on_state_changed(self, state, name, status):
 		"""

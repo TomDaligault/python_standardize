@@ -1,22 +1,28 @@
 from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout
+from PyQt5.QtCore import Qt, pyqtSignal
 
 from magnet_selection_widget import MagnetSelectionWidget
 
 class StandardizePanel(QWidget):
 	"""
-	A domain-specific composite widget for selecting and standardizing magnets.
+	A domain-specific composite widget for selecting magnets for standardization.
 
 	This panel displays a pair of lists for selecting magnets - one for "healthy" 
-	and "nonhealthy" magnets respectively - along with a button to trigger a 
-	standardization action on the selected magnets.
+	and "nonhealthy" magnets respectively - along with a button that, on click,
+	emits a signal containing all currently selected magnets. 
 
-	Each selection list is an instance of :class:`MagnetSelectionWidget`. When 
-	the "Standardize" button is clicked, the provided `on_standardize` callback 
-	is invoked with a dictionary of the currently selected magnets. This button
-	can be targeted in QSS with the `#standardize` object name. 
+	Each selection list is an instance of :class:`MagnetSelectionWidget`.The 
+	button can be targeted in QSS with the `#standardize_button` object name. 
+
+	Attributes
+	----------
+	standardize_requested : pyqtSignal(dict)
+		Emitted when the user clicks the "Standardize" button. The signal carries a 
+		dictionary mapping all currently selected magnet names to their status messages.
 	"""
+	standardize_requested = pyqtSignal(dict)
 
-	def __init__(self, healthy_magnets, nonhealthy_magnets, on_standardize):
+	def __init__(self, healthy_magnets, nonhealthy_magnets):
 		"""
 		Initialize the standardize panel.
 
@@ -28,14 +34,10 @@ class StandardizePanel(QWidget):
 		nonhealthly_magnets : dict[str, str]
 			A mapping of non-healthy magnet names to their status values.
 			None are pre-selected by default.
-		on_standardize : callable
-			A callback to execute when the standardize button is
-			clicked. It will be called with a single argument:
-			a dictionary of all selected magnets from both lists.
-
 		"""
 
 		super().__init__()
+
 		self.healthy_selector = MagnetSelectionWidget(label_text='healthy magnets')
 		self.nonhealthy_selector = MagnetSelectionWidget(label_text='non-healthy magnets')
 
@@ -47,7 +49,7 @@ class StandardizePanel(QWidget):
 
 		self.standardize_button = QPushButton(text='Standardize')
 		self.standardize_button.setObjectName('standardize_button')
-		self.standardize_button.clicked.connect(lambda : on_standardize(self.get_selected()))
+		self.standardize_button.clicked.connect(self._emit_standardize_request)
 
 		selections_layout = QHBoxLayout()
 		selections_layout.addWidget(self.nonhealthy_selector)
@@ -60,17 +62,14 @@ class StandardizePanel(QWidget):
 
 		self.setLayout(main_layout)
 
-	def get_selected(self):
+	def _emit_standardize_request(self):
 		"""
-		Return the currently selected magnets from both selectors.
+		Emit the :attr:`standardize_requested` signal with the currently selected magnets.
 
-		Returns
-		-------
-		dict
-			A merged dictionary combining the selections from both
-			the healthy and non-healthy magnet lists.
+		The emitted dictionary maps each selected magnet name to its corresponding 
+		status message.
 		"""
-
-		return {**self.healthy_selector.get_selected(), **self.nonhealthy_selector.get_selected()} 
-
+		
+		selected = {**self.healthy_selector.get_selected(), **self.nonhealthy_selector.get_selected()}
+		self.standardize_requested.emit(selected)
 

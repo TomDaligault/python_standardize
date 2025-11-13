@@ -3,8 +3,8 @@ class Presenter:
 		self.magnet_interface = magnet_interface
 		self.ui = ui
 
-		# hxr_magnets = self.magnet_interface.get_magnets_by_health('HXR')
-		# sxr_magnets = self.magnet_interface.get_magnets_by_health('SXR')
+		# hxr_magnets_by_health = self.magnet_interface.get_magnets_by_health('HXR')
+		# sxr_magnets_by_health = self.magnet_interface.get_magnets_by_health('SXR')
 		
 		hxr_magnets_by_health = {'healthy': 
 											{'BEND:BSYH:140': 'Not Stdz\'d',
@@ -20,10 +20,9 @@ class Presenter:
 								'nonhealthy': 
 											{'Q1': 'REALLY bad'}}
 
-		self.ui.setup_standardize_panels(hxr_magnets_by_health, sxr_magnets_by_health, self.on_standardize)
-
-	def on_standardize(self, magnets):
-		self.ui.raise_confirmation(lambda m=magnets: self.start_standardize(m))
+		self.ui.make_new_standarize_tab("HXR", *hxr_magnets_by_health.values())
+		self.ui.make_new_standarize_tab("SXR", *sxr_magnets_by_health.values())
+		self.ui.standardize_confirmed.connect(self.start_standardize)
 
 	def start_standardize(self, magnets):
 			self.magnet_interface.standardize(magnets)

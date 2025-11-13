@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QSta
 
 class TabWidget(QWidget):
 	"""
-	A custom tab widget for increased styling flexibility.
+	A custom tab widget with increased styling flexibility.
 
 	This widget uses toggleable buttons to switch between pages
 	displayed in an internal :class:`QStackedWidget`. It provides
@@ -13,11 +13,6 @@ class TabWidget(QWidget):
 
 	"""
 	def __init__(self):
-		"""
-		Initialize the tab widget.
-
-		"""
-
 		super().__init__()
 
 		self.tab_button_layout = QHBoxLayout()
@@ -57,7 +52,6 @@ class TabWidget(QWidget):
 		self.tab_button_layout.addWidget(button)
 		self.tab_buttons.append(button)
 
-		# First button active by default
 		if len(self.tab_buttons) == 1:
 			button.setChecked(True)
 			self.tab_pages.setCurrentIndex(0)
