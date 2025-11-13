@@ -26,10 +26,7 @@ class EpicsMagnetInterface:
 
 	primaries = ['BEND', 'QUAD']
 
-	beamline_regions = {
-					'HXR': ['CLTH', 'BSYH', 'LTUH', 'DMPH'],
-					'SXR': ['CLTS', 'BSYS', 'LTUS', 'DMPS'],
-					} 
+	beamline_regions = {'HXR': ['CLTH', 'BSYH', 'LTUH', 'DMPH'], 'SXR': ['CLTS', 'BSYS', 'LTUS', 'DMPS']} 
 
 	healthy_statuses = {'Good', 'BCON Warning', 'BDES Change', 'Not Stdz\'d', 'Out-of-Tol', 'BAD Ripple'}
 
@@ -77,7 +74,7 @@ class EpicsMagnetInterface:
 		name_filter = f"({'|'.join(self.primaries)}):({'|'.join(self.beamline_regions[beamline])})"
 
 		magnet_names = names.list_devices(name_filter)
-		magnet_names = self._remove_string_magnets(magnet_names)
+		magnet_names = self._remove_slaves_from_list(magnet_names)
 
 		statuses = caget_many([name + ':STATMSG' for name in magnet_names])
 
@@ -90,7 +87,7 @@ class EpicsMagnetInterface:
 
 		print('The following magnets would have been standardized:\n    ' + '\n    '.join(magnets))
 
-	def _remove_string_magnets(self, magnet_names):
+	def _remove_slaves_from_list(self, magnet_names):
 		"""
 		filters out units without dedicated power supplies from a list of magnet names. 
 
