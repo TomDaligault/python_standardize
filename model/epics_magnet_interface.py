@@ -16,6 +16,9 @@ class EpicsMagnetInterface:
 	healthy_statuses : set[str]
 		Status messages considered "healthy" when classifying magnets.
 
+	status_blacklist : set[str]
+		Known status messages for unstandardizable magnets, i.e., slave units. 
+
 	Notes
 	-----
 	- Retrieval is dynamic to accommodate magnet installation/removal over time.
@@ -25,10 +28,9 @@ class EpicsMagnetInterface:
 	"""
 
 	primaries = ['BEND', 'QUAD']
-
 	beamline_regions = {'HXR': ['CLTH', 'BSYH', 'LTUH', 'DMPH'], 'SXR': ['CLTS', 'BSYS', 'LTUS', 'DMPS']} 
-
 	healthy_statuses = {'Good', 'BCON Warning', 'BDES Change', 'Not Stdz\'d', 'Out-of-Tol', 'BAD Ripple'}
+	status_blacklist = {' No Control'}
 
 	def get_magnets_by_health(self, beamline):
 		"""
@@ -43,11 +45,11 @@ class EpicsMagnetInterface:
 		Returns
 		-------
 		dict[str, dict[str, str]]
-		    A dictionary with two keys: 'healthy' and 'nonhealthy'.
-		    Each maps magnet names to their corresponding status messages.
+			A map between health group, magnet names, and magnet statuses.
 		"""
 
 		magnets = self.get_magnets(beamline)
+		magnets = self._filter_by_blacklist(magnets)
 		return self._partition_by_health(magnets)
 
 
@@ -67,39 +69,37 @@ class EpicsMagnetInterface:
 
 		Notes
 		-----
-		- Constructs a MEME filter string from class-level `primaries` and `beamline_regions[beamline]`.
-		- Excludes all slave magnets as determined by their `:CONFIG` PV.
+		- Constructs a MEME filter from class-level `primaries` and `beamline_regions[beamline]`.
+		- Only returns magnets that have a STATMSG PV.
 		"""
 
-		name_filter = f"({'|'.join(self.primaries)}):({'|'.join(self.beamline_regions[beamline])})"
+		pv_filter = f"({'|'.join(self.primaries)}):({'|'.join(self.beamline_regions[beamline])}):%:STATMSG"
 
-		magnet_names = names.list_devices(name_filter)
-		magnet_names = self._remove_slaves_from_list(magnet_names)
+		status_pv_names = names.list_pvs(pv_filter)
+		magnet_names = [name.strip(":STATMSG") for name in status_pv_names]
 
-		statuses = caget_many([name + ':STATMSG' for name in magnet_names])
+		statuses = caget_many(status_pv_names, as_string=True)
 
 		return dict(zip(magnet_names, statuses))
 
 	def standardize(self, magnets):  
 		"""
 		Not yet implemented, I don't want to take down the machines. 
+
+		TODO:
+		shutter the beam
+		start standardizing
+		open striptool
 		"""
 
-		print('The following magnets would have been standardized:\n    ' + '\n    '.join(magnets))
+		print('The following magnets would have been standardized:\n    ' + '\n    '.join(magnets.keys()))
 
-	def _remove_slaves_from_list(self, magnet_names):
+	def _filter_by_blacklist(self, magnets):
 		"""
-		filters out units without dedicated power supplies from a list of magnet names. 
-
-		Parameters
-		----------
-		magnet_names : list[str]
-			The list of magnet names to filter.
+		filters out magnets according to blacklisted statuses.
 		"""
 
-		device_configs = caget_many([name + ':CONFIG' for name in magnet_names])
-		names_and_configs = dict(zip(magnet_names, device_configs))
-		return [name for name, config in names_and_configs.items() if config != 'String']
+		return [name for name, status in magnets.items() if status not in self.status_blacklist]
 
 	def _partition_by_health(self, magnets):
 		"""
@@ -113,7 +113,7 @@ class EpicsMagnetInterface:
 		Returns
 		-------
 		dict[str, dict[str, str]]
-			A map between health group, name names, and magnet statuses.
+			A map between health group, magnet names, and magnet statuses.
 
 		Notes
 		-----
