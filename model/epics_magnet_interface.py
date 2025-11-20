@@ -1,126 +1,126 @@
-# from meme import names
-# from epics import caget_many
+from meme import names
+from epics import caget_many
 
 class EpicsMagnetInterface:
-	"""
-	A lightweight tool for interfacing with EPICS for magnet standardization.
+    """
+    A lightweight tool for interfacing with EPICS for magnet standardization.
 
-	Attributes
-	----------
-	primaries : list[str]
-		Magnet types to include when filtering PVs.
+    Attributes
+    ----------
+    primaries : list[str]
+        Magnet types to include when filtering PVs.
 
-	beamline_regions : dict[str, list[str]]
-		Maps beamline identifiers to lists of region identifiers.
+    beamline_regions : dict[str, list[str]]
+        Maps beamline identifiers to lists of region identifiers.
 
-	healthy_statuses : set[str]
-		Status messages considered "healthy" when classifying magnets.
+    healthy_statuses : set[str]
+        Status messages considered "healthy" when classifying magnets.
 
-	status_blacklist : set[str]
-		Known status messages for unstandardizable magnets, i.e., slave units. 
+    Notes
+    -----
+    - Retrieval is dynamic to accommodate magnet installation/removal over time.
+    - In this tool, *magnets* specifically refers to a dictionary mapping
+    magnet names to their status messages. For consistency, all public methods 
+    accept or return this mapping (or collections of such mappings) where applicable. 
+    """
 
-	Notes
-	-----
-	- Retrieval is dynamic to accommodate magnet installation/removal over time.
-	- In this tool, *magnets* specifically refers to a dictionary mapping
-	magnet names to their status messages. For consistency, all public methods 
-	accept or return this mapping (or collections of such mappings) where applicable. 
-	"""
+    primaries = ['BEND', 'QUAD']
 
-	primaries = ['BEND', 'QUAD']
-	beamline_regions = {'HXR': ['CLTH', 'BSYH', 'LTUH', 'DMPH'], 'SXR': ['CLTS', 'BSYS', 'LTUS', 'DMPS']} 
-	healthy_statuses = {'Good', 'BCON Warning', 'BDES Change', 'Not Stdz\'d', 'Out-of-Tol', 'BAD Ripple'}
-	status_blacklist = {' No Control'}
+    beamline_regions = {'HXR': ['CLTH', 'BSYH', 'LTUH', 'DMPH'], 'SXR': ['CLTS', 'BSYS', 'LTUS', 'DMPS']} 
 
-	def get_magnets_by_health(self, beamline):
-		"""
-		Gets a map of magnet names and statuses grouped by health for
-		a given beamline indentifer.
+    healthy_statuses = {'Good', 'BCON Warning', 'BDES Change', 'Not Stdz\'d', 'Out-of-Tol', 'BAD Ripple'}
+    
+    status_blacklist = {'No Control'}
 
-		Parameters
-		----------
-		beamline : str
-			Beamline identifier to retrieve data from.
+    def get_magnets_by_health(self, beamline):
+        """
+        Gets a map of magnet names and statuses grouped by health for
+        a given beamline indentifer.
 
-		Returns
-		-------
-		dict[str, dict[str, str]]
-			A map between health group, magnet names, and magnet statuses.
-		"""
+        Parameters
+        ----------
+        beamline : str
+            Beamline identifier to retrieve data from.
 
-		magnets = self.get_magnets(beamline)
-		magnets = self._filter_by_blacklist(magnets)
-		return self._partition_by_health(magnets)
+        Returns
+        -------
+        dict[str, dict[str, str]]
+            A dictionary with two keys: 'healthy' and 'nonhealthy'.
+            Each maps magnet names to their corresponding status messages.
+        """
+
+        magnets = self.get_magnets(beamline)
+        magnets = self._filter_by_status(magnets)
+        return self._partition_by_health(magnets)
 
 
-	def get_magnets(self, beamline: str):
-		"""
-		Builds a map between magnet names and statuses for a given beamline identifier.
+    def get_magnets(self, beamline: str):
+        """
+        Builds a map between magnet names and statuses for a given beamline identifier.
 
-		Parameters
-		----------
-		beamline : str
-			Beamline identifier to retieve magnet names from.
+        Parameters
+        ----------
+        beamline : str
+            Beamline identifier to retieve magnet names from.
 
-		Returns
-		-------
-		dict[str, str]
-			A map of magnet names as 'PRIMARY:REGION:UNIT' to their status message.
+        Returns
+        -------
+        dict[str, str]
+            A map of magnet names as 'PRIMARY:REGION:UNIT' to their status message.
 
-		Notes
-		-----
-		- Constructs a MEME filter from class-level `primaries` and `beamline_regions[beamline]`.
-		- Only returns magnets that have a STATMSG PV.
-		"""
+        Notes
+        -----
+        - Constructs a MEME filter from class-level `primaries` and `beamline_regions[beamline]`.
+        - Only returns magnets that have a STATMSG PV.
+        """
 
-		pv_filter = f"({'|'.join(self.primaries)}):({'|'.join(self.beamline_regions[beamline])}):%:STATMSG"
+        pv_filter = f"({'|'.join(self.primaries)}):({'|'.join(self.beamline_regions[beamline])}):%:STATMSG"
 
-		status_pv_names = names.list_pvs(pv_filter)
-		magnet_names = [name.strip(":STATMSG") for name in status_pv_names]
+        status_pv_names = names.list_pvs(pv_filter)
 
-		statuses = caget_many(status_pv_names, as_string=True)
+        statuses = caget_many(status_pv_names, as_string=True)
+        magnet_names = [name.strip(":STATMSG") for name in status_pv_names]
 
-		return dict(zip(magnet_names, statuses))
+        return dict(zip(magnet_names, statuses))
 
-	def standardize(self, magnets):  
-		"""
-		Not yet implemented, I don't want to take down the machines. 
+    def standardize(self, magnets):  
+        """
+        Not yet implemented, I don't want to take down the machines. 
+        TODO:
+        	shutter the beams
+        	start the standardize
+        	launch striptool
+        """
 
-		TODO:
-		shutter the beam
-		start standardizing
-		open striptool
-		"""
+        print('The following magnets would have been standardized:\n    ' + '\n    '.join(magnets))
 
-		print('The following magnets would have been standardized:\n    ' + '\n    '.join(magnets.keys()))
+    def _filter_by_status(self, magnets):
+        """
+        filters out magnets according to blacklisted statuses.
+        """
+        
+        return {name: status for name, status in magnets.items() if status not in self.status_blacklist}
 
-	def _filter_by_blacklist(self, magnets):
-		"""
-		filters out magnets according to blacklisted statuses.
-		"""
+    def _partition_by_health(self, magnets):
+        """
+        Split magnets into healthy and nonhealthy group based on status messages.
 
-		return [name for name, status in magnets.items() if status not in self.status_blacklist]
+        Parameters
+        ----------
+        magnets : dict[str, str]
+            A map between magnet names and statuses.
 
-	def _partition_by_health(self, magnets):
-		"""
-		Split magnets into healthy and nonhealthy group based on status messages.
+        Returns
+        -------
+        dict[str, dict[str, str]]
+            A map between health group, name names, and magnet statuses.
 
-		Parameters
-		----------
-		magnets : dict[str, str]
-			A map between magnet names and statuses.
+        Notes
+        -----
+        - Uses the class-level `healthy_statuses` for categorization into groups.
+        """
 
-		Returns
-		-------
-		dict[str, dict[str, str]]
-			A map between health group, magnet names, and magnet statuses.
+        healthy_magnets = {m: s for m, s in magnets.items() if s in self.healthy_statuses}
+        nonhealthy_magnets = {m: s for m, s in magnets.items() if s not in self.healthy_statuses}
 
-		Notes
-		-----
-		- Uses the class-level `healthy_statuses` for categorization into groups.
-		"""
-
-		healthy_magnets = {m: s for m, s in magnets.items() if s in self.healthy_statuses}
-		nonhealthy_magnets = {m: s for m, s in magnets.items() if s not in self.healthy_statuses}
-
-		return {'healthy': healthy_magnets, 'nonhealthy': nonhealthy_magnets}
+        return {'healthy': healthy_magnets, 'nonhealthy': nonhealthy_magnets}
